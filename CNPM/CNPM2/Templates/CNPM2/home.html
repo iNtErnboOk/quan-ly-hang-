@@ -1,0 +1,275 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Hệ Thống Quản Lý Kho</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="{% static 'CNPM2/css/style.css' %}" />
+  </head>
+  <body>
+    {% if messages %}
+    <div class="alert-container">
+      {% for message in messages %}
+      <div
+        class="alert alert-{{ message.tags }}"
+        style="background-color: {% if 'error' in message.tags %}#dc3545{% else %}#28a745{% endif %};"
+      >
+        {{ message }}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <header>
+      <div class="auth-buttons">
+        {% if user.is_authenticated %}
+        <span class="auth-welcome">Xin chào, {{ user.username }}</span>
+        <a href="{% url 'logout' %}" class="btn btn-logout">Đăng xuất</a>
+        {% else %}
+        <a href="{% url 'login' %}" class="btn btn-login">Đăng nhập</a>
+        <a
+          href="{% url 'register' %}"
+          class="btn btn-login"
+          style="margin-left: 10px"
+          >Đăng ký</a
+        >
+        {% endif %}
+      </div>
+
+      <div class="nav-buttons">
+        {% if user.is_authenticated %}
+        <button class="btn btn-product" onclick="openModal('PRODUCT')">
+          + Tạo sản phẩm mới
+        </button>
+        <a href="{% url 'create_import_receipt' %}" class="btn btn-import"
+          >↓ Phiếu nhập</a
+        >
+        <a href="{% url 'create_export_receipt' %}" class="btn btn-export"
+          >↑ Phiếu xuất</a
+        >
+        {% endif %}
+      </div>
+    </header>
+
+    <div class="container">
+      <aside class="sidebar">
+        <h3>Ngành hàng <span>▲</span></h3>
+        <form id="filterForm" method="GET" action="{% url 'home' %}">
+          {% if keyword %}<input
+            type="hidden"
+            name="q"
+            value="{{ keyword }}"
+          />{% endif %}
+          <div class="filter-list">
+            {% for cat in all_categories %}
+            <label class="filter-item">
+              <input type="checkbox" name="category_id" value="{{ cat.id }}"
+              onchange="document.getElementById('filterForm').submit();" {% if
+              cat.id|stringformat:"i" in selected_categories %}checked{% endif
+              %} /> {{ cat.name }}
+            </label>
+            {% empty %}
+            <p style="color: #999; font-style: italic">
+              Chưa có Ngành hàng nào.
+            </p>
+            {% endfor %}
+          </div>
+        </form>
+      </aside>
+
+      <main class="main-content">
+        <h2>Danh sách sản phẩm</h2>
+        <form method="get" action="{% url 'home' %}" class="search-form">
+          {% for cat_id in selected_categories %}
+          <input type="hidden" name="category_id" value="{{ cat_id }}" />
+          {% endfor %}
+          <input
+            type="text"
+            name="q"
+            class="input-search"
+            placeholder="Tìm theo tên hoặc SKU..."
+            value="{{ keyword|default:'' }}"
+          />
+          <button type="submit" class="btn-search">Tìm</button>
+          {% if keyword or selected_categories %}
+          <a href="{% url 'home' %}" class="btn-clear">Xóa Lọc</a>
+          {% endif %}
+        </form>
+
+        <div class="grid">
+          {% for item in items %}
+          <div class="card" onclick="showProductDetail('{{ item.id }}')">
+            <div
+              class="card-img"
+              style="background: {% if item.mode == 'PRODUCT' %}#28a745{% elif item.mode == 'IMPORT' %}#fd7e14{% else %}#0056b3{% endif %};"
+            >
+              {% if item.image %}
+              <img src="{{ item.image.url }}" alt="{{ item.name }}" />
+              {% endif %}
+            </div>
+            <div class="card-body">
+              <h4 style="margin: 0 0 5px 0; font-size: 16px">
+                {{ item.name }}
+              </h4>
+              <p class="product-price">{{ item.price }}</p>
+              <p style="font-size: 12px; color: #888; margin: 0">
+                Kho: {{ item.quantity }} | {{ item.category }}
+              </p>
+            </div>
+            <div class="card-footer">
+              <button
+                type="button"
+                class="btn-edit-card"
+                onclick="event.stopPropagation(); openEditModal('{{ item.id }}', '{{ item.name }}', '{{ item.sku }}', '{{ item.category.id|default:'' }}', '{{ item.price }}', '{{ item.quantity }}', '{{ item.mode }}')"
+              >
+                Sửa
+              </button>
+              <a
+                href="{% url 'delete_item' item.id %}"
+                class="btn-delete-card"
+                onclick="event.stopPropagation(); return confirm('Xóa mục này?')"
+                >Xóa</a
+              >
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </main>
+    </div>
+
+    <div id="detailModalOverlay">
+      <div class="modal modal-wide">
+        <h2 id="detName" style="margin-top: 0; color: #0056b3">
+          Chi tiết sản phẩm
+        </h2>
+        <div style="display: flex; gap: 20px; margin-bottom: 20px">
+          <img
+            id="detImage"
+            src=""
+            style="
+              width: 150px;
+              height: 150px;
+              object-fit: cover;
+              border-radius: 8px;
+              background: #eee;
+            "
+          />
+          <div style="flex: 1; line-height: 1.6">
+            <p style="display: none">
+              <strong>SKU:</strong> <span id="detSKU"></span>
+            </p>
+            <p><strong>Ngành hàng:</strong> <span id="detCat"></span></p>
+            <p>
+              <strong>Giá bán:</strong>
+              <span id="detPrice" style="color: red; font-weight: bold"></span>
+            </p>
+            <p>
+              <strong>Giá nhập:</strong>
+              <span id="detImportPrice" class="product-import-price"></span>
+            </p>
+            <p><strong>Tồn kho:</strong> <span id="detQty"></span></p>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px">
+          <div>
+            <h4 style="margin-bottom: 8px; border-bottom: 2px solid #28a745">
+              Nhập hàng gần đây
+            </h4>
+            <ul
+              id="detImportHistory"
+              style="padding-left: 20px; font-size: 13px; color: #666"
+            ></ul>
+          </div>
+          <div>
+            <h4 style="margin-bottom: 8px; border-bottom: 2px solid #0056b3">
+              Xuất hàng gần đây
+            </h4>
+            <ul
+              id="detExportHistory"
+              style="padding-left: 20px; font-size: 13px; color: #666"
+            ></ul>
+          </div>
+        </div>
+        <div style="text-align: right; margin-top: 20px">
+          <button
+            type="button"
+            class="btn"
+            style="border: 1px solid #ccc"
+            onclick="document.getElementById('detailModalOverlay').style.display='none'"
+          >
+            Đóng
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="modalOverlay">
+      <div class="modal">
+        <form
+          method="POST"
+          id="itemForm"
+          action="/add/"
+          enctype="multipart/form-data"
+        >
+          {% csrf_token %}
+          <h2 id="modalTitle">Thông tin</h2>
+          <input type="hidden" name="mode" id="itemMode" />
+          <div class="form-group">
+            <label>Tên sản phẩm</label>
+            <input type="text" name="name" id="nameInput" required />
+          </div>
+          <div class="form-group">
+            <label>Hình ảnh minh họa</label>
+            <input type="file" name="image" accept="image/*" />
+          </div>
+          <input type="hidden" name="sku" id="skuInput" value="" />
+          <div class="form-group">
+            <label>Ngành hàng</label>
+            <select name="category" id="categoryInput" required>
+              <option value="">-- Chọn Ngành hàng --</option>
+              {% for cat in all_categories %}
+              <option value="{{ cat.id }}">{{ cat.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div style="display: flex; gap: 10px">
+            <div class="form-group" style="flex: 1">
+              <label>Giá (đ)</label>
+              <input type="number" name="price" id="priceInput" value="0" />
+            </div>
+            <div class="form-group" style="flex: 1">
+              <label>Số lượng</label>
+              <input
+                type="number"
+                name="quantity"
+                id="quantityInput"
+                value="1"
+              />
+            </div>
+          </div>
+          <div
+            style="
+              display: flex;
+              gap: 10px;
+              justify-content: flex-end;
+              margin-top: 20px;
+            "
+          >
+            <button type="button" class="btn btn-logout" onclick="closeModal()">
+              Đóng
+            </button>
+            <button type="submit" class="btn btn-product" id="submitBtn">
+              Tạo Sản Phẩm
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <script src="{% static 'CNPM2/js/main.js'%}"></script>
+  </body>
+</html>

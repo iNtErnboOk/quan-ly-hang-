@@ -1,0 +1,158 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Tạo Phiếu Xuất Kho</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{% static 'CNPM2/css/style.css' %}" />
+  </head>
+  <body>
+    {% if messages %}
+    <div class="alert-wrapper">
+      {% for message in messages %}
+      <div
+        class="alert"
+        style="background-color: {% if 'error' in message.tags %}#dc3545{% else %}#28a745{% endif %};"
+      >
+        {{ message }}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="transaction-container">
+      <h2>Tạo Phiếu Xuất Kho Mới</h2>
+      <form method="POST" action="{% url 'process_export_receipt' %}">
+        {% csrf_token %}
+        <div class="transaction-form-grid">
+          <div class="form-field-flex">
+            <label class="form-group label">Mã Phiếu</label>
+            <input
+              type="text"
+              name="receipt_code"
+              value="{{ next_receipt_number }}"
+              readonly
+              class="readonly-input"
+              style="width: 100%; padding: 8px"
+            />
+          </div>
+          <div class="form-field-flex">
+            <label class="form-group label">Người nhận hàng</label>
+            <input
+              type="text"
+              name="receiver_name"
+              required
+              placeholder="Tên người nhận..."
+              style="width: 100%; padding: 8px"
+            />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-group label">Ghi chú</label>
+          <textarea name="note" rows="2" class="textarea-note"></textarea>
+        </div>
+
+        <h3>Chi tiết Sản phẩm xuất</h3>
+        <div id="items-container">
+          <div class="item-row">
+            <select name="item_id" style="flex: 4" required>
+              <option value="">-- Chọn sản phẩm tồn kho --</option>
+              {% for item in existing_items %}
+              <option value="{{ item.id }}">
+                {{ item.name }} (Còn: {{ item.quantity }})
+              </option>
+              {% endfor %}
+            </select>
+            <input
+              type="number"
+              name="exported_quantity"
+              placeholder="Số lượng"
+              min="1"
+              required
+              style="flex: 1.5; text-align: right"
+            />
+            <div class="remove-btn" onclick="removeItemRow(this)">X</div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          class="btn btn-product"
+          style="margin-top: 20px"
+          onclick="addItemRow()"
+        >
+          + Thêm Sản Phẩm
+        </button>
+
+        <div class="text-right mt-30">
+          <a href="{% url 'home' %}" class="btn btn-logout">Đóng</a>
+          <button
+            type="submit"
+            class="btn btn-login"
+            style="padding: 10px 25px"
+          >
+            Xác Nhận Xuất Kho
+          </button>
+        </div>
+      </form>
+
+      <div class="history-section">
+        <h3>Lịch sử xuất kho gần đây</h3>
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>Mã Phiếu</th>
+              <th>Ngày Xuất</th>
+              <th>Người Nhận</th>
+              <th>Tổng Tiền</th>
+              <th>Trạng Thái</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for record in export_history %}
+            <tr>
+              <td class="receipt-code-display">{{ record.receipt_code }}</td>
+              <td>{{ record.export_date|date:"d/m/Y H:i" }}</td>
+              <td>{{ record.receiver_name }}</td>
+              <td class="text-amount-export">{{ record.total_amount }} đ</td>
+              <td>
+                <span class="status-badge"
+                  >{{ record.get_status_display }}</span
+                >
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="5" style="text-align: center; color: #999">
+                Chưa có lịch sử xuất kho.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <script>
+      function addItemRow() {
+        const container = document.getElementById("items-container");
+        const rows = container.getElementsByClassName("item-row");
+        const newRow = rows[0].cloneNode(true);
+        newRow.querySelector("select").value = "";
+        newRow.querySelector("input").value = "";
+        container.appendChild(newRow);
+      }
+      function removeItemRow(btn) {
+        const container = document.getElementById("items-container");
+        if (container.getElementsByClassName("item-row").length > 1) {
+          btn.parentElement.remove();
+        }
+      }
+    </script>
+  </body>
+</html>

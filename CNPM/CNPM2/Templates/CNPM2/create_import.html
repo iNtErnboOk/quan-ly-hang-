@@ -1,0 +1,183 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Tạo Phiếu Nhập Kho</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{% static 'CNPM2/css/style.css' %}" />
+  </head>
+  <body>
+    {% if messages %}
+    <div class="alert-wrapper">
+      {% for message in messages %}
+      <div
+        class="alert"
+        style="background-color: {% if 'error' in message.tags %}#dc3545{% else %}#28a745{% endif %};"
+      >
+        {{ message }}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="transaction-container">
+      <h2>Tạo Phiếu Nhập Kho Mới</h2>
+      <form
+        method="POST"
+        action="{% url 'process_import_receipt' %}"
+        id="importForm"
+      >
+        {% csrf_token %}
+        <div class="transaction-form-grid">
+          <div class="form-field-flex">
+            <label class="form-group label">Mã Phiếu</label>
+            <input
+              type="text"
+              name="receipt_code"
+              value="{{ next_receipt_number }}"
+              readonly
+              class="readonly-input"
+              style="width: 100%; padding: 8px"
+            />
+          </div>
+          <div class="form-field-flex">
+            <label class="form-group label">Nhà cung cấp</label>
+            <select name="supplier" required style="width: 100%; padding: 8px">
+              {% for supplier in suppliers %}
+              <option value="{{ supplier.id }}">{{ supplier.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <h3>Chi tiết Sản phẩm nhập</h3>
+        <div id="items-container">
+          <div class="item-row">
+            <select
+              name="item_id"
+              class="item-selector"
+              style="flex: 2"
+              onchange="handleItemChange(this)"
+            >
+              <option value="">-- SP sẵn có --</option>
+              {% for item in existing_items %}
+              <option value="{{ item.id }}">
+                {{ item.name }} (Còn: {{ item.quantity }})
+              </option>
+              {% endfor %}
+            </select>
+
+            <input
+              type="text"
+              name="new_item_name"
+              class="new-item-name-input"
+              placeholder="Tên SP mới"
+              style="flex: 2"
+              oninput="handleNewItemInput(this)"
+            />
+
+            <select
+              name="category_id"
+              class="category-selector"
+              style="flex: 1.5"
+            >
+              <option value="">-- Ngành hàng --</option>
+              {% for cat in all_categories %}
+              <option value="{{ cat.id }}">{{ cat.name }}</option>
+              {% endfor %}
+            </select>
+
+            <input
+              type="number"
+              name="imported_price"
+              placeholder="Giá nhập"
+              style="flex: 1"
+              required
+            />
+            <input
+              type="number"
+              name="imported_quantity"
+              placeholder="SL"
+              style="flex: 1"
+              required
+            />
+
+            <div class="btn-remove-row" onclick="removeItemRow(this)">X</div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          class="btn btn-product"
+          style="margin-top: 10px"
+          onclick="addItemRow()"
+        >
+          + Thêm Dòng
+        </button>
+
+        <div class="text-right mt-30">
+          <a href="{% url 'home' %}" class="btn btn-logout">Đóng</a>
+          <button
+            type="submit"
+            class="btn btn-login"
+            style="padding: 10px 25px"
+          >
+            Lưu Phiếu Nhập
+          </button>
+        </div>
+      </form>
+
+      <div class="history-section">
+        <h3>Lịch sử nhập kho gần đây</h3>
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>Mã Phiếu / Ngày</th>
+              <th>Nhà cung cấp</th>
+              <th>Sản phẩm nhập</th>
+              <th>Tổng Tiền</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for record in import_history %}
+            <tr>
+              <td>
+                <div class="receipt-code-display">
+                  {{ record.receipt_code }}
+                </div>
+                <div class="receipt-date-display">
+                  {{ record.import_date|date:"d/m/Y H:i" }}
+                </div>
+              </td>
+              <td>{{ record.supplier.name }}</td>
+              <td>
+                {% for detail in record.details.all %}
+                <div class="item-tag">
+                  {{ detail.item.name }} (x{{ detail.imported_quantity }})
+                </div>
+                {% endfor %}
+              </td>
+              <td class="total-amount-display">{{ record.total_amount }} đ</td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td
+                colspan="4"
+                style="text-align: center; color: #999; padding: 20px"
+              >
+                Chưa có lịch sử nhập.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <script src="{% static 'CNPM2/js/import_logic.js' %}"></script>
+  </body>
+</html>
